@@ -8,8 +8,8 @@ app.use(express.json());
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'your-email@gmail.com', // Your Gmail
-    pass: 'your-app-password'    // Your 16-character App Password
+    user: 'pshackhub@gmail.com', // Your Gmail
+    pass: 'pyiw dpsw phup tjyz'    // Your 16-character App Password
   }
 });
 
@@ -22,10 +22,10 @@ app.post('/webhook', (req, res) => {
     const customerEmail = payment.email;
 
     const mailOptions = {
-      from: 'your-email@gmail.com',
+      from: 'pshackhub@gmail.com',
       to: customerEmail,
       subject: 'Your Game Download Link!',
-      text: 'Thank you for your purchase! Here is your link: YOUR_LINK_HERE'
+      text: 'Thank you for your purchase! Here is your link: https://dl.surf/file/eed4fd45'
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
