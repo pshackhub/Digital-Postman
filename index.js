@@ -36,14 +36,17 @@ app.post('/webhook', async (req, res) => {
     try {
         const data = req.body;
         
-        // Extracting data from Razorpay/SmartBiz payload
+        // This is the new line for debugging
+        console.log("Full Data from Razorpay:", JSON.stringify(data, null, 2));
+
         const customerEmail = data.payload.payment.entity.email;
         const productName = data.payload.payment.entity.description; 
 
         const link = GAME_LINKS[productName];
 
         if (link) {
-            await sendAutomatedEmail(customerEmail, productName, link);
+            // Added .catch here to see why it fails
+            await sendAutomatedEmail(customerEmail, productName, link).catch(err => console.log("Email Error Details:", err));
             console.log(`✅ Successfully sent ${productName} to ${customerEmail}`);
         } else {
             console.log(`⚠️ Product "${productName}" not found in GAME_LINKS library.`);
