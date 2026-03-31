@@ -28,39 +28,38 @@ const transporter = nodemailer.createTransport({
 app.post('/webhook', async (req, res) => {
     try {
         const data = req.body;
-        // This is crucial: it shows us the secret folders in the Render logs
-        console.log("DEBUG: Full Data Received ->", JSON.stringify(data, null, 2));
+        // This will print the WHOLE data packet so we can see the hidden names
+        console.log("DEBUG DATA:", JSON.stringify(data, null, 2));
 
-        const payload = data.payload.payment.entity;
-        const customerEmail = payload.email;
+        const payment = data.payload.payment.entity;
+        const customerEmail = payment.email;
         
         // --- THE MASTER SEARCH ---
-        // We check 'notes', then 'description', then 'vpa' just in case.
+        // We check Notes first, then Description, then a fallback
         let productName = "Unknown";
-        
-        if (payload.notes && payload.notes.product_name) {
-            productName = payload.notes.product_name;
-        } else if (payload.notes && Object.values(payload.notes)[0]) {
-            productName = Object.values(payload.notes)[0]; // Takes the first note found
-        } else if (payload.description && payload.description !== "Order Payment") {
-            productName = payload.description;
+
+        if (payment.notes && Object.values(payment.notes).length > 0) {
+            // This grabs the first thing written in the "Notes" section
+            productName = Object.values(payment.notes)[0];
+        } else if (payment.description && payment.description !== "Order Payment") {
+            productName = payment.description;
         }
 
-        console.log(`Searching for link for: "${productName}"`);
+        console.log(`System is looking for a link for: "${productName}"`);
         const link = GAME_LINKS[productName];
 
         if (link) {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: customerEmail,
-                subject: `Download Link: ${productName}`,
+                subject: `Your Game Download: ${productName}`,
                 text: `Thanks for your purchase! Download ${productName} here: ${link}`
             };
+            
             await transporter.sendMail(mailOptions);
-            console.log(`✅ Success! Sent to ${customerEmail}`);
+            console.log(`✅ SUCCESS! Email sent to ${customerEmail}`);
         } else {
-            // This message tells us EXACTLY what to fix in GAME_LINKS
-            console.log(`⚠️ ERROR: No link found for "${productName}". Update your GAME_LINKS to match this exactly.`);
+            console.log(`⚠️ ERROR: No link found for "${productName}". Match this name in GAME_LINKS!`);
         }
 
         res.status(200).send('OK');
@@ -69,6 +68,5 @@ app.post('/webhook', async (req, res) => {
         res.status(500).send('Internal Error');
     }
 });
-
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
