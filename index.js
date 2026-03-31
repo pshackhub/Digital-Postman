@@ -1,68 +1,67 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const app = express();
+
 app.use(express.json());
 
-// --- STEP A: YOUR GAME LIBRARY ---
-// Make sure these names match your SmartBiz product names EXACTLY
+// 1. YOUR GAME DATABASE
 const GAME_LINKS = {
-    "Minecraft Test Ps4 FPKG": "https://dl.surf/f/eed4fd45",
-    "Letter Quest Remastered Test Ps4 Fpkg": "https://dl.surf/f/177af12d",
-    "Urban Reign Game PS2 to PS4 (FPKG)": "https://dl.surf/f/53eaa8d6"
+    "Urban Reign": "https://your-link-here.com",
+    "Minecraft": "https://your-link-here.com",
+    "Test Product": "https://google.com"
 };
 
-// --- STEP B: THE EMAIL SENDER ---
-async function sendAutomatedEmail(customerEmail, productName, downloadLink) {
-    let transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER, // Uses the Key you just made in Render
-            pass: process.env.EMAIL_PASS  // Uses the Key you just made in Render
-        }
-    });
+// 2. EMAIL CONFIGURATION (Updated for Render Stability)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Use SSL
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    connectionTimeout: 10000 // Give it 10 seconds to connect
+});
 
-    const mailOptions = {
-        from: '"PsHackHub Support" <pshackhub@gmail.com>',
-        to: customerEmail,
-        subject: `🎮 Your Download: ${productName} is ready!`,
-        text: `Hi!\n\nThank you for your purchase of ${productName}!\n\nDownload Link: ${downloadLink}\n\nImportant: This link expires in 24 hours. If you need help, reply to this email.\n\nHappy Gaming,\nThe PsHackHub Team`
-    };
-
-    return transporter.sendMail(mailOptions);
-}
-
-// --- STEP C: THE WEBHOOK ---
+// 3. THE WEBHOOK LOGIC
 app.post('/webhook', async (req, res) => {
     try {
         const data = req.body;
-        console.log("Full Data from Razorpay:", JSON.stringify(data, null, 2));
+        console.log("Full Data received:", JSON.stringify(data));
 
         const customerEmail = data.payload.payment.entity.email;
         
-        // --- NEW LOGIC TO FIND THE REAL PRODUCT NAME ---
-        let productName = data.payload.payment.entity.description;
-
-        // If SmartBiz just says "Order Payment", we look in the 'notes' for the real name
-        if (productName === "Order Payment" && data.payload.payment.entity.notes) {
-            // SmartBiz often puts the product name in notes
-            productName = data.payload.payment.entity.notes.product_name || productName;
+        // Try to find the name in 'notes' first, then 'description'
+        let productName = "Unknown";
+        if (data.payload.payment.entity.notes && data.payload.payment.entity.notes.product_name) {
+            productName = data.payload.payment.entity.notes.product_name;
+        } else {
+            productName = data.payload.payment.entity.description;
         }
 
         const link = GAME_LINKS[productName];
 
-        if (link) {
-            await sendAutomatedEmail(customerEmail, productName, link).catch(err => console.log("Email Error Details:", err));
-            console.log(`✅ Successfully sent ${productName} to ${customerEmail}`);
+        if (link && link !== "Order Payment") {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: customerEmail,
+                subject: `Your Download: ${productName}`,
+                text: `Thank you for your purchase! Here is your link for ${productName}: ${link}`
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log(`✅ Success! Sent ${productName} to ${customerEmail}`);
         } else {
-            console.log(`⚠️ Still looking for: "${productName}". Please check your GAME_LINKS keys.`);
+            console.log(`⚠️ Match Failed. SmartBiz sent: "${productName}". Check your GAME_LINKS keys!`);
         }
 
         res.status(200).send('OK');
     } catch (error) {
-        console.error("❌ Webhook Error:", error);
-        res.status(500).send('Internal Server Error');
+        console.error("❌ Error:", error);
+        res.status(500).send('Internal Error');
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
