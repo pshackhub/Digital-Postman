@@ -1,42 +1,60 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const app = express();
-
 app.use(express.json());
 
-// 1. Setup your email "Postman"
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'pshackhub@gmail.com', // Your Gmail
-    pass: 'pyiw dpsw phup tjyz'    // Your 16-character App Password
-  }
-});
+// --- STEP A: YOUR GAME LIBRARY ---
+// Make sure these names match your SmartBiz product names EXACTLY
+const GAME_LINKS = {
+    "Minecraft Test Ps4 FPKG": "https://dl.surf/f/eed4fd45",
+    "Letter Quest Remastered Test Ps4 Fpkg": "https://dl.surf/f/177af12d",
+    "Urban Reign Game PS2 to PS4 (FPKG)": "https://dl.surf/f/53eaa8d6"
+};
 
-// 2. The Webhook Listener
-app.post('/webhook', (req, res) => {
-    console.log("Payment received!");
-
-    // Razorpay sends customer details in the request body
-    const payment = req.body.payload.payment.entity;
-    const customerEmail = payment.email;
+// --- STEP B: THE EMAIL SENDER ---
+async function sendAutomatedEmail(customerEmail, productName, downloadLink) {
+    let transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER, // Uses the Key you just made in Render
+            pass: process.env.EMAIL_PASS  // Uses the Key you just made in Render
+        }
+    });
 
     const mailOptions = {
-      from: 'pshackhub@gmail.com',
-      to: customerEmail,
-      subject: 'Your Game Download Link!',
-      text: 'Thank you for your purchase! Here is your link: https://dl.surf/file/eed4fd45'
+        from: '"PsHackHub Support" <pshackhub@gmail.com>',
+        to: customerEmail,
+        subject: `🎮 Your Download: ${productName} is ready!`,
+        text: `Hi!\n\nThank you for your purchase of ${productName}!\n\nDownload Link: ${downloadLink}\n\nImportant: This link expires in 24 hours. If you need help, reply to this email.\n\nHappy Gaming,\nThe PsHackHub Team`
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log(error);
-        return res.status(500).send("Error sending email");
-      }
-      console.log('Email sent: ' + info.response);
-      res.status(200).send('OK');
-    });
+    return transporter.sendMail(mailOptions);
+}
+
+// --- STEP C: THE WEBHOOK ---
+app.post('/webhook', async (req, res) => {
+    try {
+        const data = req.body;
+        
+        // Extracting data from Razorpay/SmartBiz payload
+        const customerEmail = data.payload.payment.entity.email;
+        const productName = data.payload.payment.entity.description; 
+
+        const link = GAME_LINKS[productName];
+
+        if (link) {
+            await sendAutomatedEmail(customerEmail, productName, link);
+            console.log(`✅ Successfully sent ${productName} to ${customerEmail}`);
+        } else {
+            console.log(`⚠️ Product "${productName}" not found in GAME_LINKS library.`);
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error("❌ Webhook Error:", error);
+        res.status(500).send('Internal Server Error');
+    }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Postman is listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
