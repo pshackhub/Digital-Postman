@@ -28,37 +28,44 @@ const transporter = nodemailer.createTransport({
 app.post('/webhook', async (req, res) => {
     try {
         const data = req.body;
-        console.log("Full Data received:", JSON.stringify(data));
+        // This is crucial: it shows us the secret folders in the Render logs
+        console.log("DEBUG: Full Data Received ->", JSON.stringify(data, null, 2));
 
-        const customerEmail = data.payload.payment.entity.email;
+        const payload = data.payload.payment.entity;
+        const customerEmail = payload.email;
         
-        // Try to find the name in 'notes' first, then 'description'
+        // --- THE MASTER SEARCH ---
+        // We check 'notes', then 'description', then 'vpa' just in case.
         let productName = "Unknown";
-        if (data.payload.payment.entity.notes && data.payload.payment.entity.notes.product_name) {
-            productName = data.payload.payment.entity.notes.product_name;
-        } else {
-            productName = data.payload.payment.entity.description;
+        
+        if (payload.notes && payload.notes.product_name) {
+            productName = payload.notes.product_name;
+        } else if (payload.notes && Object.values(payload.notes)[0]) {
+            productName = Object.values(payload.notes)[0]; // Takes the first note found
+        } else if (payload.description && payload.description !== "Order Payment") {
+            productName = payload.description;
         }
 
+        console.log(`Searching for link for: "${productName}"`);
         const link = GAME_LINKS[productName];
 
-        if (link && link !== "Order Payment") {
+        if (link) {
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: customerEmail,
-                subject: `Your Download: ${productName}`,
-                text: `Thank you for your purchase! Here is your link for ${productName}: ${link}`
+                subject: `Download Link: ${productName}`,
+                text: `Thanks for your purchase! Download ${productName} here: ${link}`
             };
-
             await transporter.sendMail(mailOptions);
-            console.log(`✅ Success! Sent ${productName} to ${customerEmail}`);
+            console.log(`✅ Success! Sent to ${customerEmail}`);
         } else {
-            console.log(`⚠️ Match Failed. SmartBiz sent: "${productName}". Check your GAME_LINKS keys!`);
+            // This message tells us EXACTLY what to fix in GAME_LINKS
+            console.log(`⚠️ ERROR: No link found for "${productName}". Update your GAME_LINKS to match this exactly.`);
         }
 
         res.status(200).send('OK');
     } catch (error) {
-        console.error("❌ Error:", error);
+        console.error("❌ Webhook Error:", error);
         res.status(500).send('Internal Error');
     }
 });
