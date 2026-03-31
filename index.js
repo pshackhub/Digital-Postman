@@ -35,21 +35,26 @@ async function sendAutomatedEmail(customerEmail, productName, downloadLink) {
 app.post('/webhook', async (req, res) => {
     try {
         const data = req.body;
-        
-        // This is the new line for debugging
         console.log("Full Data from Razorpay:", JSON.stringify(data, null, 2));
 
         const customerEmail = data.payload.payment.entity.email;
-        const productName = data.payload.payment.entity.description; 
+        
+        // --- NEW LOGIC TO FIND THE REAL PRODUCT NAME ---
+        let productName = data.payload.payment.entity.description;
+
+        // If SmartBiz just says "Order Payment", we look in the 'notes' for the real name
+        if (productName === "Order Payment" && data.payload.payment.entity.notes) {
+            // SmartBiz often puts the product name in notes
+            productName = data.payload.payment.entity.notes.product_name || productName;
+        }
 
         const link = GAME_LINKS[productName];
 
         if (link) {
-            // Added .catch here to see why it fails
             await sendAutomatedEmail(customerEmail, productName, link).catch(err => console.log("Email Error Details:", err));
             console.log(`✅ Successfully sent ${productName} to ${customerEmail}`);
         } else {
-            console.log(`⚠️ Product "${productName}" not found in GAME_LINKS library.`);
+            console.log(`⚠️ Still looking for: "${productName}". Please check your GAME_LINKS keys.`);
         }
 
         res.status(200).send('OK');
