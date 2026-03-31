@@ -6,9 +6,9 @@ app.use(express.json());
 
 // 1. YOUR GAME DATABASE
 const GAME_LINKS = {
-    "Urban Reign": "https://your-link-here.com",
-    "Minecraft": "https://your-link-here.com",
-    "Test Product": "https://google.com"
+    "Urban Reign Game PS2 to PS4 (FPKG)": "https://dl.surf/f/53eaa8d6",
+    "Minecraft Ps4 FPKG": "https://dl.surf/f/eed4fd45",
+    "Letter Quest Remastered Test Ps4 Fpkg": "https://dl.surf/f/177af12d"
 };
 
 // 2. EMAIL CONFIGURATION (Updated for Render Stability)
